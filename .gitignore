@@ -5,3 +5,4 @@ wandb/
 dist/
 
 examples/grpo_output/
+*.log

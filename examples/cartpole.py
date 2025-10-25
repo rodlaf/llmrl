@@ -8,12 +8,9 @@ from llamagym import Agent
 
 
 class CartPoleAgent(Agent):
-    def get_system_prompt(self) -> str:
-        return "You control a cart balancing a pole. Respond with 0 (LEFT) or 1 (RIGHT) to keep the pole upright."
-
-    def format_observation(self, observation: gym.core.ObsType) -> str:
+    def format_prompt(self, observation: gym.core.ObsType) -> str:
         cart_pos, cart_vel, pole_angle, pole_vel = observation
-        return f"Cart pos={cart_pos:.2f}, Pole angle={pole_angle:.2f}"
+        return f"You control a cart balancing a pole. Respond with 0 (LEFT) or 1 (RIGHT).\n\nCart pos={cart_pos:.2f}, Pole angle={pole_angle:.2f}"
 
     def extract_action(self, response: str) -> gym.core.ActType:
         return 0 if "0" in response else 1
@@ -38,7 +35,7 @@ if __name__ == "__main__":
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         device_map=device,
-        torch_dtype=torch.float16,
+        dtype=torch.float32,
         token=os.environ.get("HF_TOKEN"),
     )
     
@@ -50,8 +47,8 @@ if __name__ == "__main__":
         model, 
         tokenizer, 
         device,
-        {"max_new_tokens": hyperparams["max_new_tokens"], "do_sample": hyperparams["do_sample"]},
-        {"batch_size": hyperparams["batch_size"]},
+        generate_config={"max_new_tokens": hyperparams["max_new_tokens"], "do_sample": hyperparams["do_sample"]},
+        training_config={"batch_size": hyperparams["batch_size"]},
     )
     
     env = gym.make(hyperparams["env"])
