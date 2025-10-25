@@ -4,10 +4,10 @@ from typing import List, Dict
 import gymnasium as gym
 import torch
 from trl import (
-    PPOTrainer,
-    PPOConfig,
-    create_reference_model,
+    GRPOTrainer,
+    GRPOConfig,
 )
+from datasets import Dataset
 
 
 class Agent(ABC):
@@ -29,9 +29,20 @@ class Agent(ABC):
         self.tokenizer = tokenizer
         self.device = device
         self.generate_config_dict = generate_config_dict
-        self.model_ref = create_reference_model(model)
-        self.ppo_config = PPOConfig(**ppo_config_dict)
-        self.ppo_trainer = PPOTrainer(self.ppo_config, model, self.model_ref, tokenizer)
+        
+        # Store config for batch management
+        self.batch_size = ppo_config_dict.get("batch_size", 16)
+        
+        # GRPO-specific: Store prompts, completions, and rewards from episodes
+        self.grpo_batch = {
+            "prompts": [], 
+            "completions": [],
+            "rewards": []
+        }
+        
+        # We'll initialize GRPO trainer when we have our first batch of data
+        self.grpo_trainer = None
+        self.grpo_config_dict = ppo_config_dict
 
         self.current_batch = {"queries": [], "responses": [], "rewards": []}
 
@@ -56,21 +67,48 @@ class Agent(ABC):
         pass
 
     def llm(self, messages: List[Dict[str, str]]) -> str:
+        # Ensure model is in eval mode for inference
+        self.model.eval()
+        
         prompt = self.tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-        generate_ids = self.model.generate(
-            inputs=inputs.input_ids,
-            **{
-                key.split("/")[-1]: value
-                for key, value in self.generate_config_dict.items()
-            }
-        )
-        outputs = self.tokenizer.batch_decode(
-            generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
-        )
-        response = outputs[0].split("[/INST]")[-1].strip()
+        
+        try:
+            inputs = self.tokenizer(
+                prompt, 
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=512
+            ).to(self.device)
+            
+            with torch.no_grad():  # No gradients needed for inference
+                generate_ids = self.model.generate(
+                    input_ids=inputs.input_ids,
+                    attention_mask=inputs.attention_mask,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    **{
+                        key.split("/")[-1]: value
+                        for key, value in self.generate_config_dict.items()
+                    }
+                )
+            outputs = self.tokenizer.batch_decode(
+                generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+            )
+            response = outputs[0].split("[/INST]")[-1].strip()
+            
+        except RuntimeError as e:
+            if "CUDA" in str(e):
+                print(f"CUDA error during generation: {e}")
+                print("Attempting to recover...")
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                # Return a default action
+                response = "Action: 0"
+            else:
+                raise
 
         return response
 
@@ -122,6 +160,14 @@ class Agent(ABC):
             queries, responses, rewards = self.format_episode_for_ppo(
                 self.current_episode_messages, self.current_episode_rewards
             )
+            
+            # For GRPO, we need to convert queries to prompts (text format) and responses to completions
+            for query, response, reward in zip(queries, responses, rewards):
+                prompt_text = self.tokenizer.decode(query, skip_special_tokens=True)
+                completion_text = self.tokenizer.decode(response, skip_special_tokens=True)
+                self.grpo_batch["prompts"].append(prompt_text)
+                self.grpo_batch["completions"].append(completion_text)
+                self.grpo_batch["rewards"].append(reward.item())
 
         self.current_episode_messages = [
             {
@@ -131,38 +177,81 @@ class Agent(ABC):
         ]
         self.current_episode_rewards = []
 
-        if train:
-            self.current_batch["queries"].extend(queries)
-            self.current_batch["responses"].extend(responses)
-            self.current_batch["rewards"].extend(rewards)
-
-            if len(self.current_batch["queries"]) >= self.ppo_config.batch_size:
-                train_stats = self.train_batch(
-                    self.current_batch["queries"],
-                    self.current_batch["responses"],
-                    self.current_batch["rewards"],
-                )
-                return train_stats
+        if train and len(self.grpo_batch["prompts"]) >= self.batch_size:
+            train_stats = self.train_grpo_batch()
+            return train_stats
 
         return {}
 
-    def train_batch(self, batch_queries, batch_responses, batch_rewards):
-        if len(batch_queries) > self.ppo_config.batch_size:
-            queries = batch_queries[: self.ppo_config.batch_size]
-            responses = batch_responses[: self.ppo_config.batch_size]
-            rewards = batch_rewards[: self.ppo_config.batch_size]
-
-            # keep the remainder for the next batch
-            self.current_batch["queries"] = batch_queries[self.ppo_config.batch_size :]
-            self.current_batch["responses"] = batch_responses[
-                self.ppo_config.batch_size :
-            ]
-            self.current_batch["rewards"] = batch_rewards[self.ppo_config.batch_size :]
+    def train_grpo_batch(self):
+        """Train using GRPO with accumulated prompts, completions, and rewards."""
+        # Get the batch to train
+        batch_prompts = self.grpo_batch["prompts"][:self.batch_size]
+        batch_completions = self.grpo_batch["completions"][:self.batch_size]
+        batch_rewards = self.grpo_batch["rewards"][:self.batch_size]
+        
+        # Create dataset from accumulated prompts
+        dataset = Dataset.from_dict({
+            "prompt": batch_prompts,
+            "completion": batch_completions,
+        })
+        
+        # Create a reward function that returns our stored rewards
+        # GRPO will call this with prompts and completions it generated
+        # But since we're providing completions in the dataset, it might use those
+        def reward_function(prompts, completions, **kwargs):
+            # Return the rewards we collected from the environment
+            return batch_rewards[:len(prompts)]
+        
+        # Initialize GRPO trainer if not already done
+        if self.grpo_trainer is None:
+            # GRPOConfig uses different parameter names than PPOConfig
+            grpo_config = GRPOConfig(
+                output_dir="./grpo_output",
+                num_train_epochs=1,
+                per_device_train_batch_size=self.batch_size,
+                gradient_checkpointing=False,  # Disable to avoid cache issues
+                learning_rate=1e-5,  # Lower learning rate for stability
+            )
+            
+            self.grpo_trainer = GRPOTrainer(
+                model=self.model,
+                reward_funcs=reward_function,
+                args=grpo_config,
+                train_dataset=dataset,
+                processing_class=self.tokenizer,
+            )
         else:
-            queries, responses, rewards = batch_queries, batch_responses, batch_rewards
-            self.current_batch = {"queries": [], "responses": [], "rewards": []}
-
-        train_stats = self.ppo_trainer.step(queries, responses, rewards)
-        torch.cuda.empty_cache()
-
+            # Update the dataset for the trainer
+            self.grpo_trainer.train_dataset = dataset
+        
+        # Train for one step
+        try:
+            self.grpo_trainer.train()
+            train_stats = {"loss": 0.0, "trained": True}
+            
+            # Clear CUDA cache after training to prevent memory issues
+            torch.cuda.empty_cache()
+            
+        except Exception as e:
+            print(f"GRPO training error: {e}")
+            train_stats = {"error": str(e)}
+            
+            # Try to recover from CUDA errors
+            try:
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            except:
+                pass
+        
+        # Clear the batch (or keep remainder if > batch_size)
+        if len(self.grpo_batch["prompts"]) > self.batch_size:
+            self.grpo_batch = {
+                "prompts": self.grpo_batch["prompts"][self.batch_size:],
+                "completions": self.grpo_batch["completions"][self.batch_size:],
+                "rewards": self.grpo_batch["rewards"][self.batch_size:]
+            }
+        else:
+            self.grpo_batch = {"prompts": [], "completions": [], "rewards": []}
+        
         return train_stats

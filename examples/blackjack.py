@@ -1,10 +1,10 @@
 import os
 from tqdm import trange
 import wandb
+import torch
 
-from transformers import AutoTokenizer
-from peft import LoraConfig
-from trl import AutoModelForCausalLMWithValueHead
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import LoraConfig, get_peft_model
 
 import re
 import gymnasium as gym
@@ -36,19 +36,20 @@ Decide whether to stay with your current sum by writing "Action: 0" or accept an
 
 if __name__ == "__main__":
     hyperparams = {
-        "model_name": "meta-llama/Llama-2-7b-chat-hf",
+        "model_name": "google/gemma-3-270m",
         "env": "Blackjack-v1",
         "lora/r": 16,
         "lora/lora_alpha": 32,
         "lora/lora_dropout": 0.05,
         "lora/bias": "none",
         "lora/task_type": "CAUSAL_LM",
-        "load_in_8bit": True,
+        "lora/target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        "load_in_8bit": False,  # Disable quantization to avoid CUDA multinomial issues
         "batch_size": 8,
         "seed": 42069,
         "episodes": 5000,
         "generate/max_new_tokens": 32,
-        "generate/do_sample": True,
+        "generate/do_sample": False,  # Use greedy decoding instead of sampling to avoid multinomial issues
         "generate/top_p": 0.6,
         "generate/top_k": 0,
         "generate/temperature": 0.9,
@@ -64,15 +65,29 @@ if __name__ == "__main__":
             if key.startswith("lora/")
         }
     )
-    model = AutoModelForCausalLMWithValueHead.from_pretrained(
+    
+    # For GRPO, use regular AutoModelForCausalLM (no value head needed)
+    base_model = AutoModelForCausalLM.from_pretrained(
         pretrained_model_name_or_path=hyperparams["model_name"],
-        peft_config=lora_config,
-        load_in_8bit=hyperparams["load_in_8bit"],
+        device_map={"": device},
         token=HF_TOKEN,
-    ).to(device)
+        torch_dtype=torch.float16,  # Use fp16 instead of quantization
+    )
+    
     tokenizer = AutoTokenizer.from_pretrained(hyperparams["model_name"], token=HF_TOKEN)
-    tokenizer.add_special_tokens({"pad_token": "<pad>"})
-    model.pretrained_model.resize_token_embeddings(len(tokenizer))
+    
+    # Set pad token to eos token (common practice for decoder-only models)
+    # DO NOT add new tokens - just reuse existing ones to avoid embedding resize issues
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+    
+    # Set a default chat template if not present (for Gemma models)
+    if tokenizer.chat_template is None:
+        tokenizer.chat_template = "{% for message in messages %}{{ message['role'] }}: {{ message['content'] }}\n{% endfor %}"
+    
+    # Apply LoRA (no need to resize embeddings since we didn't add new tokens)
+    model = get_peft_model(base_model, lora_config).to(device)
 
     agent = BlackjackAgent(
         model,
