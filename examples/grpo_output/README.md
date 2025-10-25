@@ -1,17 +1,17 @@
 ---
-base_model: google/gemma-3-270m
+base_model: google/gemma-2-2b-it
 library_name: transformers
 model_name: grpo_output
 tags:
 - generated_from_trainer
-- trl
 - grpo
+- trl
 licence: license
 ---
 
 # Model Card for grpo_output
 
-This model is a fine-tuned version of [google/gemma-3-270m](https://huggingface.co/google/gemma-3-270m).
+This model is a fine-tuned version of [google/gemma-2-2b-it](https://huggingface.co/google/gemma-2-2b-it).
 It has been trained using [TRL](https://github.com/huggingface/trl).
 
 ## Quick start
@@ -27,7 +27,7 @@ print(output["generated_text"])
 
 ## Training procedure
 
-[<img src="https://raw.githubusercontent.com/wandb/assets/main/wandb-github-badge-28.svg" alt="Visualize in Weights & Biases" width="150" height="24"/>](https://wandb.ai/rodneyslafuente-self/LlamaGym-examples/runs/knkel86p) 
+[<img src="https://raw.githubusercontent.com/wandb/assets/main/wandb-github-badge-28.svg" alt="Visualize in Weights & Biases" width="150" height="24"/>](https://wandb.ai/rodneyslafuente-self/LlamaGym-examples/runs/qpnbxiyh) 
 
 
 This model was trained with GRPO, a method introduced in [DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models](https://huggingface.co/papers/2402.03300).
