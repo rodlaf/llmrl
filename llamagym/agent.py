@@ -49,7 +49,10 @@ class Agent(ABC):
         new_tokens = generate_ids[0, input_length:]
         response = self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
         
-        self.interaction_log.write(f"[TOKEN_IDS] {new_tokens.tolist()}\n[RESPONSE] '{response}'\n")
+        # Clean up immediately
+        del inputs, generate_ids, new_tokens
+        
+        self.interaction_log.write(f"[RESPONSE] '{response}'\n")
         self.interaction_log.flush()
         return response
 
