@@ -1,5 +1,5 @@
 import os
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 
 from tqdm import trange
 import wandb
@@ -20,7 +20,7 @@ class CartPoleAgent(Agent):
 
 if __name__ == "__main__":
     device = "cuda"
-    model_name = "google/gemma-2-2b-it"
+    model_name = "Qwen/Qwen2.5-0.5B-Instruct"
     
     hyperparams = {
         "model_name": model_name,
