@@ -63,11 +63,12 @@ if __name__ == "__main__":
         "lora/target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
         "batch_size": 8,
         "seed": 42069,
-        "episodes": 1000,  # CartPole episodes are shorter
+        "episodes": 1000,
         "generate/max_new_tokens": 32,
-        "generate/do_sample": False,  # Greedy decoding for stability
+        "generate/do_sample": False,  # Greedy decoding to avoid multinomial CUDA bug
         "generate/top_p": 0.6,
         "generate/top_k": 0,
+        "generate/temperature": 0.9,
         "generate/temperature": 0.9,
     }
     wandb_run = wandb.init(project=os.environ.get("WANDB_PROJECT"), config=hyperparams)

@@ -178,9 +178,10 @@ class Agent(ABC):
             config = GRPOConfig(
                 output_dir="./grpo_output",
                 num_train_epochs=1,
+                max_steps=8,
                 per_device_train_batch_size=self.batch_size,
                 gradient_checkpointing=False,
-                learning_rate=1e-5,
+                learning_rate=1e-6,
                 logging_steps=1,  # Log every step
                 report_to=[],  # Disable GRPO's wandb logging, we'll do it ourselves
             )

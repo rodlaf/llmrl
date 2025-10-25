@@ -44,12 +44,12 @@ if __name__ == "__main__":
         "lora/bias": "none",
         "lora/task_type": "CAUSAL_LM",
         "lora/target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-        "load_in_8bit": False,
-        "batch_size": 16,  # Increased from 8 for better GPU utilization
+        "load_in_8bit": False,  # Disable quantization to avoid CUDA multinomial issues
+        "batch_size": 8,
         "seed": 42069,
         "episodes": 5000,
         "generate/max_new_tokens": 32,
-        "generate/do_sample": False,
+        "generate/do_sample": False,  # Use greedy decoding instead of sampling to avoid multinomial issues
         "generate/top_p": 0.6,
         "generate/top_k": 0,
         "generate/temperature": 0.9,
@@ -93,15 +93,8 @@ if __name__ == "__main__":
         model,
         tokenizer,
         device,
-        {
-            key: value
-            for key, value in hyperparams.items()
-            if key.startswith("generate/")
-        },
-        {
-            "batch_size": hyperparams["batch_size"],
-            "mini_batch_size": hyperparams["batch_size"],
-        },
+        {key: value for key, value in hyperparams.items() if key.startswith("generate/")},
+        {"batch_size": hyperparams["batch_size"]},
     )
     env = gym.make(hyperparams["env"], natural=False, sab=False)
 
