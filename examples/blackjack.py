@@ -44,12 +44,12 @@ if __name__ == "__main__":
         "lora/bias": "none",
         "lora/task_type": "CAUSAL_LM",
         "lora/target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-        "load_in_8bit": False,  # Disable quantization to avoid CUDA multinomial issues
-        "batch_size": 8,
+        "load_in_8bit": False,
+        "batch_size": 16,  # Increased from 8 for better GPU utilization
         "seed": 42069,
         "episodes": 5000,
         "generate/max_new_tokens": 32,
-        "generate/do_sample": False,  # Use greedy decoding instead of sampling to avoid multinomial issues
+        "generate/do_sample": False,
         "generate/top_p": 0.6,
         "generate/top_k": 0,
         "generate/temperature": 0.9,
