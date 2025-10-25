@@ -11,7 +11,7 @@
   "log_history": [],
   "logging_steps": 10,
   "max_steps": 8,
-  "num_input_tokens_seen": 10828,
+  "num_input_tokens_seen": 15879,
   "num_train_epochs": 1,
   "save_steps": 500,
   "stateful_callbacks": {

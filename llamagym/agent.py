@@ -190,61 +190,62 @@ class Agent(ABC):
         batch_completions = self.grpo_batch["completions"][:self.batch_size]
         batch_rewards = self.grpo_batch["rewards"][:self.batch_size]
         
+        # Store in instance variable so reward function can access
+        self._current_rewards = batch_rewards
+        
         # Create dataset from accumulated prompts
         dataset = Dataset.from_dict({
             "prompt": batch_prompts,
             "completion": batch_completions,
         })
         
-        # Create a reward function that returns our stored rewards
-        # GRPO will call this with prompts and completions it generated
-        # But since we're providing completions in the dataset, it might use those
+        # Reward function that accesses instance variable
         def reward_function(prompts, completions, **kwargs):
-            # Return the rewards we collected from the environment
-            return batch_rewards[:len(prompts)]
+            return self._current_rewards[:len(prompts)]
         
         # Initialize GRPO trainer if not already done
         if self.grpo_trainer is None:
-            # GRPOConfig uses different parameter names than PPOConfig
             grpo_config = GRPOConfig(
                 output_dir="./grpo_output",
                 num_train_epochs=1,
                 per_device_train_batch_size=self.batch_size,
-                gradient_checkpointing=False,  # Disable to avoid cache issues
-                learning_rate=1e-5,  # Lower learning rate for stability
+                gradient_checkpointing=False,
+                learning_rate=1e-5,
             )
             
             self.grpo_trainer = GRPOTrainer(
                 model=self.model,
-                reward_funcs=reward_function,
+                reward_funcs=[reward_function],  # Pass as list
                 args=grpo_config,
                 train_dataset=dataset,
                 processing_class=self.tokenizer,
             )
         else:
-            # Update the dataset for the trainer
+            # Update dataset AND reward function for new batch
             self.grpo_trainer.train_dataset = dataset
+            self.grpo_trainer.reward_funcs = [reward_function]  # Pass as list
         
-        # Train for one step
+        # Train
         try:
             self.grpo_trainer.train()
-            train_stats = {"loss": 0.0, "trained": True}
             
-            # Clear CUDA cache after training to prevent memory issues
+            # Log the actual rewards we're using for training
+            train_stats = {
+                "loss": 0.0, 
+                "trained": True,
+                "batch_rewards_mean": sum(batch_rewards) / len(batch_rewards),
+                "batch_rewards_min": min(batch_rewards),
+                "batch_rewards_max": max(batch_rewards),
+            }
+            
             torch.cuda.empty_cache()
             
         except Exception as e:
             print(f"GRPO training error: {e}")
             train_stats = {"error": str(e)}
-            
-            # Try to recover from CUDA errors
-            try:
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
-            except:
-                pass
+            torch.cuda.empty_cache()
         
-        # Clear the batch (or keep remainder if > batch_size)
+        # Clear the batch
         if len(self.grpo_batch["prompts"]) > self.batch_size:
             self.grpo_batch = {
                 "prompts": self.grpo_batch["prompts"][self.batch_size:],
