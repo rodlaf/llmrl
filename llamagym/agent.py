@@ -34,6 +34,7 @@ class Agent(ABC):
         # Accumulate data from episodes for batch training
         self.batch_data = {"prompts": [], "completions": [], "rewards": []}
         self.grpo_trainer = None
+        self.training_step = 0  # Track training progress across batches
         
         # Current episode state
         self.current_episode_messages = [{"role": "system", "content": self.get_system_prompt()}]
@@ -180,6 +181,8 @@ class Agent(ABC):
                 per_device_train_batch_size=self.batch_size,
                 gradient_checkpointing=False,
                 learning_rate=1e-5,
+                logging_steps=1,  # Log every step
+                report_to=[],  # Disable GRPO's wandb logging, we'll do it ourselves
             )
             self.grpo_trainer = GRPOTrainer(
                 model=self.model,
@@ -196,16 +199,20 @@ class Agent(ABC):
         # Train and collect stats
         try:
             self.grpo_trainer.train()
+            self.training_step += 1
+            
             stats = {
                 "trained": True,
+                "training_step": self.training_step,
                 "batch_rewards_mean": sum(rewards) / len(rewards),
                 "batch_rewards_min": min(rewards),
                 "batch_rewards_max": max(rewards),
+                "batch_size": len(rewards),
             }
             torch.cuda.empty_cache()
         except Exception as e:
             print(f"Training error: {e}")
-            stats = {"error": str(e)}
+            stats = {"error": str(e), "training_step": self.training_step}
             torch.cuda.empty_cache()
         
         # Clear processed data, keep remainder
