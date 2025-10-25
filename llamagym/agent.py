@@ -79,8 +79,7 @@ class Agent(ABC):
             queries.append(prompt)
             responses.append(messages[i+1]["content"])
         
-        per_turn_reward = rewards[-1] / len(queries) if queries else 0
-        return queries, responses, [per_turn_reward] * len(queries)
+        return queries, responses, rewards[:len(queries)]
 
     def terminate_episode(self, train=True):
         if train:
