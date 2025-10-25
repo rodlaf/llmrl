@@ -10,7 +10,7 @@ from llamagym import Agent
 class CartPoleAgent(Agent):
     def format_prompt(self, observation: gym.core.ObsType) -> str:
         cart_pos, cart_vel, pole_angle, pole_vel = observation
-        return f"You control a cart balancing a pole. Respond with 0 (LEFT) or 1 (RIGHT).\n\nCart pos={cart_pos:.2f}, Pole angle={pole_angle:.2f}"
+        return f"You control a cart balancing a pole. Respond with 0 (LEFT) or 1 (RIGHT).\n\nCart pos={cart_pos:.2f}, vel={cart_vel:.2f}, Pole angle={pole_angle:.2f}, vel={pole_vel:.2f}"
 
     def extract_action(self, response: str) -> gym.core.ActType:
         return 0 if "0" in response else 1
