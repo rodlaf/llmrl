@@ -111,7 +111,6 @@ class Agent(ABC):
         
         if self.grpo_trainer is None:
             config = GRPOConfig(
-                output_dir="./grpo_output", 
                 num_train_epochs=1, 
                 max_steps=1,
                 per_device_train_batch_size=self.batch_size, 
