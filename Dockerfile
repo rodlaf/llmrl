@@ -16,8 +16,13 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+# Install dependencies first (cached layer)
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Copy code (changes frequently, separate layer)
 COPY . .
-RUN pip3 install --no-cache-dir -e .
+ENV PYTHONPATH=/app
 
 ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
