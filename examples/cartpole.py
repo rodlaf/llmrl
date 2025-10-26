@@ -19,21 +19,23 @@ class CartPoleAgent(Agent):
         """
 
     def extract_action(self, response: str) -> gym.core.ActType:
-        response_upper = response.upper()
+        print(f"Response: {response}")
         
-        # Find first occurrence of LEFT or RIGHT
+        response_upper = response.upper()
         left_pos = response_upper.find("LEFT")
         right_pos = response_upper.find("RIGHT")
         
-        # If both found, use whichever comes first
         if left_pos != -1 and right_pos != -1:
-            return 0 if left_pos < right_pos else 1
+            action = 0 if left_pos < right_pos else 1
         elif left_pos != -1:
-            return 0
+            action = 0
         elif right_pos != -1:
-            return 1
+            action = 1
         else:
-            return random.choice([0, 1])
+            action = random.choice([0, 1])
+            
+        print(f"Action: {'LEFT' if action == 0 else 'RIGHT'}\n")
+        return action
 
 
 if __name__ == "__main__":
