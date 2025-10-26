@@ -8,3 +8,4 @@ examples/grpo_output/
 *.log
 examples/trainer_output/
 .venv/
+data/

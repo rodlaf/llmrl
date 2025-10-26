@@ -1,5 +1,6 @@
 import os
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["WANDB_DIR"] = "/data"
 
 import argparse
 from tqdm import trange
@@ -13,7 +14,13 @@ from llamagym import Agent
 class CartPoleAgent(Agent):
     def format_prompt(self, observation: gym.core.ObsType) -> str:
         cart_pos, cart_vel, pole_angle, pole_vel = observation
-        return f"You control a cart balancing a pole. End your response with exactly 'ACTION: LEFT' or 'ACTION: RIGHT'.\n\nCart pos={cart_pos:.2f}, vel={cart_vel:.2f}, Pole angle={pole_angle:.2f}, vel={pole_vel:.2f}"
+        return f"""Balance the pole by moving the cart LEFT or RIGHT.
+
+State: cart_pos={cart_pos:.2f}, cart_vel={cart_vel:.2f}, pole_angle={pole_angle:.2f}, pole_vel={pole_vel:.2f}
+
+Think: What direction is the pole falling? Which way should I move the cart to balance it?
+
+ACTION: """
 
     def extract_action(self, response: str) -> gym.core.ActType:
         # Look for the specific ACTION: format at the end
@@ -73,7 +80,12 @@ if __name__ == "__main__":
         tokenizer, 
         args.device,
         generate_config={"max_new_tokens": args.max_tokens, "do_sample": False},
-        training_config={"batch_size": args.batch_size, "learning_rate": args.learning_rate, "gamma": args.gamma},
+        training_config={
+            "batch_size": args.batch_size, 
+            "learning_rate": args.learning_rate, 
+            "gamma": args.gamma,
+            "data_dir": "/data"
+        },
     )
     
     env = gym.make(args.env)
@@ -90,10 +102,12 @@ if __name__ == "__main__":
             done = terminated or truncated
             step_count += 1
 
+        # Calculate total return before terminating episode
+        total_return = sum(agent.current_episode_rewards)
         train_stats = agent.terminate_episode()
         wandb.log({
             "episode": episode,
             "episode_length": step_count,
-            "total_return": sum(agent.current_episode_rewards) if agent.current_episode_rewards else step_count,
+            "total_return": total_return,
             **train_stats
         })

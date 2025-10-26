@@ -23,8 +23,11 @@ class Agent(ABC):
         self.current_episode_messages = []
         self.current_episode_rewards = []
         
-        os.makedirs("logs", exist_ok=True)
-        log_filename = f"logs/interactions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        # Use data directory from config or default to current directory
+        data_dir = training_config.get("data_dir", ".")
+        logs_dir = os.path.join(data_dir, "logs")
+        os.makedirs(logs_dir, exist_ok=True)
+        log_filename = os.path.join(logs_dir, f"interactions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
         self.interaction_log = open(log_filename, "w")
 
     @abstractmethod
