@@ -64,6 +64,7 @@ class Agent(ABC):
 
     def act(self, observation):
         prompt_text = self.format_prompt(observation)
+        print(f"Prompt: {prompt_text}")
         
         response = self.llm(prompt_text)
         action = self.extract_action(response)
