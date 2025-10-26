@@ -1,6 +1,6 @@
 # Usage:
 # docker build -t ghcr.io/rodlaf/llmrl .
-# docker run --rm --gpus all --env-file .env -v ./data:/data ghcr.io/rodlaf/llmrl
+# docker run --rm --gpus all --env-file .env ghcr.io/rodlaf/llmrl
 
 FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
@@ -14,9 +14,6 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
-# Create data directory for persistent storage
-RUN mkdir -p /data
 
 # Install dependencies first (cached layer)
 COPY requirements.txt .

@@ -1,6 +1,5 @@
 import os
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
-os.environ["WANDB_DIR"] = "/data"
 
 import argparse
 from tqdm import trange
@@ -40,7 +39,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=8, help="Training batch size")
     parser.add_argument("--episodes", type=int, default=1000, help="Number of episodes")
     parser.add_argument("--max-tokens", type=int, default=64, help="Max new tokens")
-    parser.add_argument("--learning-rate", type=float, default=1e-6, help="Learning rate")
+    parser.add_argument("--learning-rate", type=float, default=1e-5, help="Learning rate")
     parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor for returns")
     parser.add_argument("--device", default="cuda", help="Device")
     parser.add_argument("--dtype", default="float32", choices=["float16", "float32"], help="Model dtype")
@@ -83,8 +82,7 @@ if __name__ == "__main__":
         training_config={
             "batch_size": args.batch_size, 
             "learning_rate": args.learning_rate, 
-            "gamma": args.gamma,
-            "data_dir": "/data"
+            "gamma": args.gamma
         },
     )
     

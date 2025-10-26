@@ -5,6 +5,7 @@ from trl import GRPOTrainer, GRPOConfig
 from datasets import Dataset
 from datetime import datetime
 import os
+import wandb
 
 
 class Agent(ABC):
@@ -23,12 +24,8 @@ class Agent(ABC):
         self.current_episode_messages = []
         self.current_episode_rewards = []
         
-        # Use data directory from config or default to current directory
-        data_dir = training_config.get("data_dir", ".")
-        logs_dir = os.path.join(data_dir, "logs")
-        os.makedirs(logs_dir, exist_ok=True)
-        log_filename = os.path.join(logs_dir, f"interactions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
-        self.interaction_log = open(log_filename, "w")
+        # Track step count for detailed logging
+        self.global_step = 0
 
     @abstractmethod
     def format_prompt(self, observation: gym.core.ObsType) -> str:
@@ -56,21 +53,33 @@ class Agent(ABC):
         # Clean up immediately
         del inputs, generate_ids, new_tokens
         
-        self.interaction_log.write(f"[RESPONSE] '{response}'\n")
-        self.interaction_log.flush()
+        # Log response to wandb
+        wandb.log({
+            "step": self.global_step,
+            "response": response,
+            "response_length": len(response)
+        })
+        
         return response
 
     def act(self, observation):
         prompt_text = self.format_prompt(observation)
-        self.interaction_log.write(f"[PROMPT] {prompt_text}\n")
         
         response = self.llm(prompt_text)
         action = self.extract_action(response)
         
+        # Log interaction to wandb
+        wandb.log({
+            "step": self.global_step,
+            "prompt": prompt_text,
+            "action": action,
+            "observation": str(observation)
+        })
+        
         self.current_episode_messages.append({"role": "user", "content": prompt_text})
         self.current_episode_messages.append({"role": "assistant", "content": response})
-        self.interaction_log.write(f"[ACTION] {action}\n\n")
-        self.interaction_log.flush()
+        
+        self.global_step += 1
         return action
 
     def assign_reward(self, reward):
