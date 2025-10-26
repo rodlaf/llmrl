@@ -1,7 +1,6 @@
 # Usage:
-# docker build -t llamagym .
-# docker run --gpus all -e HF_TOKEN=$HF_TOKEN -e WANDB_API_KEY=$WANDB_API_KEY \
-#   llamagym --episodes 500 --batch-size 4 --model google/gemma-2-270m --dtype float16
+# docker build -t ghcr.io/rodlaf/llmrl .
+# docker run --gpus all --env-file .env ghcr.io/rodlaf/llmrl
 
 FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
@@ -23,7 +22,5 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Copy code (changes frequently, separate layer)
 COPY . .
 ENV PYTHONPATH=/app
-
-ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 ENTRYPOINT ["python3", "examples/cartpole.py"]

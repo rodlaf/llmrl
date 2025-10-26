@@ -15,6 +15,7 @@ class Agent(ABC):
         self.generate_config = generate_config
         self.batch_size = training_config["batch_size"]
         self.learning_rate = training_config.get("learning_rate", 1e-6)
+        self.gamma = training_config.get("gamma", 0.99)  # Discount factor for returns
         
         self.batch_data = {"prompts": [], "completions": [], "rewards": []}
         self.grpo_trainer = None
@@ -79,11 +80,14 @@ class Agent(ABC):
             queries.append(prompt)
             responses.append(messages[i+1]["content"])
         
-        # Use episode length as reward for each action
-        episode_length = len(queries)
-        episode_rewards = [episode_length] * len(queries)
+        # Calculate discounted returns for proper temporal credit assignment
+        returns = []
+        G = 0
+        for reward in reversed(rewards):
+            G = reward + self.gamma * G
+            returns.insert(0, G)
         
-        return queries, responses, episode_rewards
+        return queries, responses, returns
 
     def terminate_episode(self, train=True):
         if train:

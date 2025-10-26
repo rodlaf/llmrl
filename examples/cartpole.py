@@ -13,10 +13,17 @@ from llamagym import Agent
 class CartPoleAgent(Agent):
     def format_prompt(self, observation: gym.core.ObsType) -> str:
         cart_pos, cart_vel, pole_angle, pole_vel = observation
-        return f"You control a cart balancing a pole. Respond with LEFT or RIGHT.\n\nCart pos={cart_pos:.2f}, vel={cart_vel:.2f}, Pole angle={pole_angle:.2f}, vel={pole_vel:.2f}"
+        return f"You control a cart balancing a pole. End your response with exactly 'ACTION: LEFT' or 'ACTION: RIGHT'.\n\nCart pos={cart_pos:.2f}, vel={cart_vel:.2f}, Pole angle={pole_angle:.2f}, vel={pole_vel:.2f}"
 
     def extract_action(self, response: str) -> gym.core.ActType:
-        return 0 if "LEFT" in response.upper() else 1
+        # Look for the specific ACTION: format at the end
+        if "ACTION: LEFT" in response.upper():
+            return 0
+        elif "ACTION: RIGHT" in response.upper():
+            return 1
+        else:
+            # Fallback: if no clear action format, default to LEFT
+            return 0
 
 
 if __name__ == "__main__":
@@ -27,6 +34,7 @@ if __name__ == "__main__":
     parser.add_argument("--episodes", type=int, default=1000, help="Number of episodes")
     parser.add_argument("--max-tokens", type=int, default=64, help="Max new tokens")
     parser.add_argument("--learning-rate", type=float, default=1e-6, help="Learning rate")
+    parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor for returns")
     parser.add_argument("--device", default="cuda", help="Device")
     parser.add_argument("--dtype", default="float32", choices=["float16", "float32"], help="Model dtype")
     parser.add_argument("--project", default="llamagym", help="Wandb project")
@@ -41,6 +49,7 @@ if __name__ == "__main__":
         "episodes": args.episodes,
         "max_new_tokens": args.max_tokens,
         "learning_rate": args.learning_rate,
+        "gamma": args.gamma,
         "do_sample": False,
         "device": args.device,
         "dtype": args.dtype,
@@ -64,7 +73,7 @@ if __name__ == "__main__":
         tokenizer, 
         args.device,
         generate_config={"max_new_tokens": args.max_tokens, "do_sample": False},
-        training_config={"batch_size": args.batch_size, "learning_rate": args.learning_rate},
+        training_config={"batch_size": args.batch_size, "learning_rate": args.learning_rate, "gamma": args.gamma},
     )
     
     env = gym.make(args.env)
