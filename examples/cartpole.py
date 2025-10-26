@@ -14,9 +14,12 @@ import random
 class CartPoleAgent(Agent):
     def format_prompt(self, observation: gym.core.ObsType) -> str:
         cart_pos, cart_vel, pole_angle, pole_vel = observation
-        return f"""Keep pole balanced. State: pos={cart_pos:.2f}, vel={cart_vel:.2f}, angle={pole_angle:.2f}, ang_vel={pole_vel:.2f}
+        return f"""Keep pole balanced on cart. Current state:
+Cart position: {cart_pos:.3f}, velocity: {cart_vel:.3f}
+Pole angle: {pole_angle:.3f} rad, angular velocity: {pole_vel:.3f}
+(Negative values = leftward, positive = rightward)
 
-Your final choice (last word used): LEFT or RIGHT"""
+Your action: LEFT or RIGHT"""
 
     def extract_action(self, response: str) -> gym.core.ActType:
         print(f"Response: {response}")
