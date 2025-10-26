@@ -14,19 +14,19 @@ import random
 class CartPoleAgent(Agent):
     def format_prompt(self, observation: gym.core.ObsType) -> str:
         cart_pos, cart_vel, pole_angle, pole_vel = observation
-        return f"""Balance the pole by moving the cart LEFT or RIGHT.
-        cart_pos={cart_pos:.2f}, cart_vel={cart_vel:.2f}, pole_angle={pole_angle:.2f}, pole_vel={pole_vel:.2f}
-        """
+        return f"""Keep pole balanced. State: pos={cart_pos:.2f}, vel={cart_vel:.2f}, angle={pole_angle:.2f}, ang_vel={pole_vel:.2f}
+
+Your final choice (last word used): LEFT or RIGHT"""
 
     def extract_action(self, response: str) -> gym.core.ActType:
         print(f"Response: {response}")
         
         response_upper = response.upper()
-        left_pos = response_upper.find("LEFT")
-        right_pos = response_upper.find("RIGHT")
+        left_pos = response_upper.rfind("LEFT")  # Find LAST occurrence
+        right_pos = response_upper.rfind("RIGHT")  # Find LAST occurrence
         
         if left_pos != -1 and right_pos != -1:
-            action = 0 if left_pos < right_pos else 1
+            action = 0 if left_pos > right_pos else 1  # Use LAST occurrence
         elif left_pos != -1:
             action = 0
         elif right_pos != -1:
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     parser.add_argument("--env", default="CartPole-v1", help="Gym environment")
     parser.add_argument("--batch-size", type=int, default=8, help="Training batch size")
     parser.add_argument("--episodes", type=int, default=1000, help="Number of episodes")
-    parser.add_argument("--max-tokens", type=int, default=64, help="Max new tokens")
+    parser.add_argument("--max-tokens", type=int, default=128, help="Max new tokens")
     parser.add_argument("--learning-rate", type=float, default=1e-5, help="Learning rate")
     parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor for returns")
     parser.add_argument("--device", default="cuda", help="Device")
