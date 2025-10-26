@@ -1,5 +1,7 @@
-# 
-# docker run --gpus all -e HF_TOKEN=$HF_TOKEN -e WANDB_API_KEY=$WANDB_API_KEY -e WANDB_PROJECT=llamagym llamagym
+# Usage:
+# docker build -t llamagym .
+# docker run --gpus all -e HF_TOKEN=$HF_TOKEN -e WANDB_API_KEY=$WANDB_API_KEY \
+#   llamagym --episodes 500 --batch-size 4 --model google/gemma-2-270m --dtype float16
 
 FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
@@ -19,4 +21,4 @@ RUN pip3 install --no-cache-dir -e .
 
 ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-CMD ["python3", "examples/cartpole.py"]
+ENTRYPOINT ["python3", "examples/cartpole.py"]

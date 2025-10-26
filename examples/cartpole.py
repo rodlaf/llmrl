@@ -1,6 +1,7 @@
 import os
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 
+import argparse
 from tqdm import trange
 import wandb
 import torch
@@ -19,43 +20,56 @@ class CartPoleAgent(Agent):
 
 
 if __name__ == "__main__":
-    device = "cuda"
-    model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", default="Qwen/Qwen2.5-0.5B-Instruct", help="Model name")
+    parser.add_argument("--env", default="CartPole-v1", help="Gym environment")
+    parser.add_argument("--batch-size", type=int, default=8, help="Training batch size")
+    parser.add_argument("--episodes", type=int, default=1000, help="Number of episodes")
+    parser.add_argument("--max-tokens", type=int, default=64, help="Max new tokens")
+    parser.add_argument("--learning-rate", type=float, default=1e-6, help="Learning rate")
+    parser.add_argument("--device", default="cuda", help="Device")
+    parser.add_argument("--dtype", default="float32", choices=["float16", "float32"], help="Model dtype")
+    parser.add_argument("--project", default="llamagym", help="Wandb project")
+    args = parser.parse_args()
+    
+    dtype = torch.float16 if args.dtype == "float16" else torch.float32
     
     hyperparams = {
-        "model_name": model_name,
-        "env": "CartPole-v1",
-        "batch_size": 8,
-        "episodes": 1000,
-        "max_new_tokens": 64,
+        "model_name": args.model,
+        "env": args.env,
+        "batch_size": args.batch_size,
+        "episodes": args.episodes,
+        "max_new_tokens": args.max_tokens,
+        "learning_rate": args.learning_rate,
         "do_sample": False,
+        "device": args.device,
+        "dtype": args.dtype,
     }
     
-    wandb.init(project=os.environ.get("WANDB_PROJECT"), config=hyperparams)
+    wandb.init(project=args.project, config=hyperparams)
     
-    # Load model WITHOUT LoRA - test if base model works first
     model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        device_map=device,
-        dtype=torch.float32,
+        args.model,
+        device_map=args.device,
+        dtype=dtype,
         token=os.environ.get("HF_TOKEN"),
     )
     
-    tokenizer = AutoTokenizer.from_pretrained(model_name, token=os.environ.get("HF_TOKEN"))
+    tokenizer = AutoTokenizer.from_pretrained(args.model, token=os.environ.get("HF_TOKEN"))
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.pad_token_id = tokenizer.eos_token_id
     
     agent = CartPoleAgent(
         model, 
         tokenizer, 
-        device,
-        generate_config={"max_new_tokens": hyperparams["max_new_tokens"], "do_sample": hyperparams["do_sample"]},
-        training_config={"batch_size": hyperparams["batch_size"]},
+        args.device,
+        generate_config={"max_new_tokens": args.max_tokens, "do_sample": False},
+        training_config={"batch_size": args.batch_size, "learning_rate": args.learning_rate},
     )
     
-    env = gym.make(hyperparams["env"])
+    env = gym.make(args.env)
 
-    for episode in trange(hyperparams["episodes"]):
+    for episode in trange(args.episodes):
         observation, _ = env.reset()
         done = False
         step_count = 0
