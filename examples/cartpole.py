@@ -27,7 +27,7 @@ if __name__ == "__main__":
         "env": "CartPole-v1",
         "batch_size": 8,
         "episodes": 1000,
-        "max_new_tokens": 16,
+        "max_new_tokens": 64,
         "do_sample": False,
     }
     

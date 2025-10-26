@@ -1,3 +1,6 @@
+# 
+# docker run --gpus all -e HF_TOKEN=$HF_TOKEN -e WANDB_API_KEY=$WANDB_API_KEY -e WANDB_PROJECT=llamagym llamagym
+
 FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
