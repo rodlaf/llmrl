@@ -79,7 +79,11 @@ class Agent(ABC):
             queries.append(prompt)
             responses.append(messages[i+1]["content"])
         
-        return queries, responses, rewards[:len(queries)]
+        # Use episode length as reward for each action
+        episode_length = len(queries)
+        episode_rewards = [episode_length] * len(queries)
+        
+        return queries, responses, episode_rewards
 
     def terminate_episode(self, train=True):
         if train:
