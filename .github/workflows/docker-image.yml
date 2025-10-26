@@ -1,10 +1,17 @@
 name: Docker Image CI
 
+permissions:
+  contents: read
+  packages: write
+
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/llmrl:latest
 
 jobs:
   build:
@@ -21,7 +28,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag ghcr.io/rodlaf/llmrl:latest
+        run: docker build . --file Dockerfile --tag $IMAGE
 
       - name: Push the Docker image
-        run: docker push ghcr.io/rodlaf/llmrl:latest
+        if: github.event_name == 'push'  # don't push for PRs
+        run: docker push $IMAGE
