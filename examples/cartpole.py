@@ -8,28 +8,32 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import gymnasium as gym
 from llamagym import Agent
+import random
 
 
 class CartPoleAgent(Agent):
     def format_prompt(self, observation: gym.core.ObsType) -> str:
         cart_pos, cart_vel, pole_angle, pole_vel = observation
         return f"""Balance the pole by moving the cart LEFT or RIGHT.
-
-State: cart_pos={cart_pos:.2f}, cart_vel={cart_vel:.2f}, pole_angle={pole_angle:.2f}, pole_vel={pole_vel:.2f}
-
-Think: What direction is the pole falling? Which way should I move the cart to balance it?
-
-ACTION: """
+        cart_pos={cart_pos:.2f}, cart_vel={cart_vel:.2f}, pole_angle={pole_angle:.2f}, pole_vel={pole_vel:.2f}
+        """
 
     def extract_action(self, response: str) -> gym.core.ActType:
-        # Look for the specific ACTION: format at the end
-        if "ACTION: LEFT" in response.upper():
+        response_upper = response.upper()
+        
+        # Find first occurrence of LEFT or RIGHT
+        left_pos = response_upper.find("LEFT")
+        right_pos = response_upper.find("RIGHT")
+        
+        # If both found, use whichever comes first
+        if left_pos != -1 and right_pos != -1:
+            return 0 if left_pos < right_pos else 1
+        elif left_pos != -1:
             return 0
-        elif "ACTION: RIGHT" in response.upper():
+        elif right_pos != -1:
             return 1
         else:
-            # Fallback: if no clear action format, default to LEFT
-            return 0
+            return random.choice([0, 1])
 
 
 if __name__ == "__main__":
