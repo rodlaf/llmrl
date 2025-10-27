@@ -1,4 +1,4 @@
-# Real-Time LLM Agents Learning CartPole Control Through Online RL
+# Learning Through Interaction: Balancing a CartPole Through Online GRPO with Language Models
 
 *October 26, 2025*
 
